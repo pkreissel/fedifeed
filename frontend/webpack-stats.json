@@ -1,0 +1,18 @@
+{
+  "status": "done",
+  "assets": {
+    "bundle.js": {
+      "name": "bundle.js",
+      "path": "/Users/philip/Desktop/Mastodon/fedi_feed/frontend/dist/bundle.js"
+    },
+    "index.html": {
+      "name": "index.html",
+      "path": "/Users/philip/Desktop/Mastodon/fedi_feed/frontend/dist/index.html"
+    }
+  },
+  "chunks": {
+    "main": [
+      "bundle.js"
+    ]
+  }
+}

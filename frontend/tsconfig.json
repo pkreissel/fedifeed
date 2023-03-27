@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "outDir": "dist",
+        "sourceMap": true,
+        "noImplicitAny": true,
+        "module": "esnext",
+        "target": "ES2015",
+        "jsx": "react",
+        "lib": [
+            "esnext.asynciterable",
+            "dom",
+            "ES2021",
+        ],
+        "allowJs": true,
+        "moduleResolution": "node",
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "resolveJsonModule": true
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}

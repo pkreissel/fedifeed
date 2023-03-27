@@ -1,0 +1,36 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bootstrap": "^5.2.3",
+    "html-react-parser": "^3.0.14",
+    "masto": "^5.10.0",
+    "react": "^18.2.0",
+    "react-bootstrap": "^2.7.2",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.29",
+    "@types/react-dom": "^18.0.11",
+    "css-loader": "^6.7.3",
+    "html-webpack-plugin": "^5.5.0",
+    "iterator-helpers-polyfill": "^2.2.8",
+    "mini-css-extract-plugin": "^2.7.5",
+    "style-loader": "^3.3.2",
+    "ts-loader": "^9.4.2",
+    "typescript": "^5.0.2",
+    "webpack": "^5.76.3",
+    "webpack-bundle-tracker": "^1.8.1",
+    "webpack-cli": "^5.0.1",
+    "webpack-dev-server": "^4.13.1"
+  }
+}

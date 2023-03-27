@@ -1,0 +1,12 @@
+django-environ
+django
+Mastodon.py
+requests
+django-encrypted-model-fields
+gunicorn
+postgres
+psycopg2-binary
+whitenoise
+django-heroku
+django-webpack-loader
+pandas
