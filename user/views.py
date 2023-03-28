@@ -37,6 +37,7 @@ def login(request):
     # Server Name from coookie
     print(code)
     server = request.session.get('server')
+    server = MastodonServer.standardize_servername(server)
     print(server)
     mastoServer = MastodonServer.objects.get(api_base_url=server)
     api = Mastodon(
@@ -71,11 +72,7 @@ def login(request):
 def register(request):
     from urllib.parse import urlparse
     server = request.GET.get('server')
-    # Parse server url
-    if server.startswith("https://"):
-        server = "https://" + urlparse(server).netloc
-    else:
-        server = "https://" + server
+    server = MastodonServer.standardize_servername(server)
     mastoServer, created = MastodonServer.objects.get_or_create(
         api_base_url=server)
     request.session['server'] = server

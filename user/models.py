@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from django.db import models
 from django.contrib.auth.models import User
 from encrypted_model_fields.fields import EncryptedCharField
@@ -8,6 +10,16 @@ class MastodonServer(models.Model):
     api_base_url = models.CharField(max_length=100)
     client_id = EncryptedCharField(max_length=500)
     client_secret = EncryptedCharField(max_length=500)
+
+
+    @staticmethod
+    def standardize_servername(server):
+        # Parse server url
+        if server.startswith("https://"):
+            server = "https://" + urlparse(server).netloc
+        else:
+            server = "https://" + server
+        return server
 
 
 class MastodonUser(models.Model):
