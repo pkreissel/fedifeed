@@ -7,11 +7,13 @@ import Stack from 'react-bootstrap/esm/Stack';
 import Form from 'react-bootstrap/Form';
 import Status from './Status';
 import Accordion from 'react-bootstrap/esm/Accordion';
+import Spinner from 'react-bootstrap/Spinner';
 
 
 
 
 export default function Feed(props: { token: string, server: string }) {
+    const [isLoading, setLoading] = useState<boolean>(true);
     const [feed, setFeed] = useState<any>([]);
     const [rawFeed, setRawFeed] = useState<any>([]);
     const [api, setApi] = useState<any>(null);
@@ -29,7 +31,7 @@ export default function Feed(props: { token: string, server: string }) {
             url: props.server + '/api/v1/',
         }).then((masto) => {
             setApi(masto)
-            constructFeed(masto);
+            constructFeed(masto)
         })
     }, []);
 
@@ -80,6 +82,7 @@ export default function Feed(props: { token: string, server: string }) {
                     return status;
                 })
                 setFeed(results);
+                setLoading(false);
             })
     }
 
@@ -158,6 +161,9 @@ export default function Feed(props: { token: string, server: string }) {
     return (
         <Container>
             <h1 style={{ textAlign: "center" }}>Feed</h1>
+            {isLoading &&
+                <Spinner animation="border" />
+            }
             <Accordion>
                 <Accordion.Item eventKey="0">
                     <Accordion.Header>Feed Algorithmus</Accordion.Header>

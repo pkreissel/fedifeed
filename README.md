@@ -37,10 +37,20 @@ python manage.py runserver
 ```
 Only the last command is required every time.
 
-To start the backend dev server:
+To start the frontend dev server:
 ```
 cd frontend
 npx webpack --config webpack.config.js --watch
+```
 
+# Todos:
+- [ ] Improve CI/CD
+- [ ] Better UI, Support for Polls, Videos, Images, etc.
+- [ ] Working Links back into the traditional Mastodon Interface
+- [ ] Retweet, Like etc. Buttons
+- [ ] Profile View to delete profile etc. 
+- [ ] Feed should cache posts and only load new ones
+- [ ] Add more features for algorithm, e.g. include posts from suggested users, prioritise recent follows etc.
+- [ ] Add local machine learning in the browser to tweak the features automatically
 
 

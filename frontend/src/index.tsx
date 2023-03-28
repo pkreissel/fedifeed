@@ -25,10 +25,12 @@ const App: React.FC = () => {
             }
         }>
             <div>
+                <label htmlFor="mastodon_server">Enter Mastodon Server in the form: https://example.social</label>
                 <input type="text" id="mastodon_server" placeholder="Mastodon Server" onChange={(e) => {
                     setServer(e.target.value);
                 }} />
             </div>
+
             <a href={"/register?server=" + server}>Login</a>
         </div>
     )
