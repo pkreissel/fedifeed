@@ -149,10 +149,32 @@ export default function Feed(props: { token: string, server: string }) {
         })
     }
 
-    const reblog = (id: string) => {
+    const resolve = async (status: any): Promise<{ id: string }> => {
         const masto = api;
+        if (status.uri.includes(props.server)) {
+            return status;
+        } else {
+            const res = await masto.v2.search({ q: status.uri, resolve: true })
+            return res.statuses[0]
+        }
+    }
+
+    const reblog = async (status: any) => {
+        const masto = api;
+        const status_ = await resolve(status);
+        const id = status_.id;
         (async () => {
-            const res = await masto.v1.statuses.reblog({ id: id });
+            const res = await masto.v1.statuses.reblog(id);
+            console.log(res);
+        })();
+    }
+
+    const fav = async (status: any) => {
+        const masto = api;
+        const status_ = await resolve(status);
+        const id = status_.id;
+        (async () => {
+            const res = await masto.v1.statuses.favourite(id);
             console.log(res);
         })();
     }
@@ -161,9 +183,6 @@ export default function Feed(props: { token: string, server: string }) {
     return (
         <Container>
             <h1 style={{ textAlign: "center" }}>Feed</h1>
-            {isLoading &&
-                <Spinner animation="border" />
-            }
             <Accordion>
                 <Accordion.Item eventKey="0">
                     <Accordion.Header>Feed Algorithmus</Accordion.Header>
@@ -179,10 +198,13 @@ export default function Feed(props: { token: string, server: string }) {
                     </Accordion.Body>
                 </Accordion.Item>
             </Accordion>
+            {isLoading &&
+                <Spinner animation="border" />
+            }
             <Stack gap={3} style={{ padding: "10px" }} className="mw-50">
                 {feed.map((status: any) => {
                     return (
-                        <Status status={status} key={status.id} />
+                        <Status status={status} reblog={reblog} fav={fav} key={status.id} />
                     )
                 })}
             </Stack >

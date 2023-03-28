@@ -69,11 +69,17 @@ def login(request):
 
 
 def register(request):
+    from urllib.parse import urlparse
     server = request.GET.get('server')
+    # Parse server url
+    if server.startswith("https://"):
+        server = "https://" + urlparse(server).netloc
+    else:
+        server = "https://" + server
     mastoServer, created = MastodonServer.objects.get_or_create(
         api_base_url=server)
     request.session['server'] = server
-    if created:
+    if created or settings.DEBUG:
         client_id, client_secret = Mastodon.create_app(
             api_base_url=server,
             redirect_uris=settings.HOSTED_URL + "/login",
@@ -106,7 +112,7 @@ def register(request):
 def reblogs(request):
     import pandas as pd
     from django.core.cache import cache
-    if cache.get(f'reblogs{request.user.id}'):
+    if cache.get(f'reblogs{request.user.id}', "expired") is not "expired":
         frequent = cache.get(f'reblogs{request.user.id}')
     else:
         api = Mastodon(
