@@ -144,7 +144,7 @@ def core_accounts(request):
 def core_servers(request):
     import pandas as pd
     from django.core.cache import cache
-    if cache.get(f'core_servers{request.user.id}'):
+    if cache.get(f'core_servers{request.user.id}', "expired") is not "expired":
         frequent_server = cache.get(f'core_servers{request.user.id}')
     else:
         api = Mastodon(

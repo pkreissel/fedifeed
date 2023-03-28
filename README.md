@@ -47,7 +47,7 @@ npx webpack --config webpack.config.js --watch
 - [ ] Improve CI/CD
 - [ ] Better UI, Support for Polls, Videos, Images, etc.
 - [ ] Working Links back into the traditional Mastodon Interface
-- [ ] Retweet, Like etc. Buttons
+- [x] Retweet, Like etc. Buttons
 - [ ] Profile View to delete profile etc. 
 - [ ] Feed should cache posts and only load new ones
 - [ ] Add more features for algorithm, e.g. include posts from suggested users, prioritise recent follows etc.

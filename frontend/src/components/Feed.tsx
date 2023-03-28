@@ -8,21 +8,24 @@ import Form from 'react-bootstrap/Form';
 import Status from './Status';
 import Accordion from 'react-bootstrap/esm/Accordion';
 import Spinner from 'react-bootstrap/Spinner';
+import Alert from 'react-bootstrap/Alert';
+
 
 
 
 
 export default function Feed(props: { token: string, server: string }) {
-    const [isLoading, setLoading] = useState<boolean>(true);
-    const [feed, setFeed] = useState<any>([]);
-    const [rawFeed, setRawFeed] = useState<any>([]);
-    const [api, setApi] = useState<any>(null);
-    const [userReblogs, setReblogs] = useState<any>([]);
-    const [userCoreServers, setCoreServers] = useState<any>([]);
-    const [userReblogWeight, setUserReblogWeight] = useState<number>(2);
-    const [topPostWeight, setTopPostWeight] = useState<number>(5);
-    const [frequencyWeight, setFrequencyWeight] = useState<number>(1);
-    const [timePenalty, setTimePenalty] = useState<number>(1)
+    const [isLoading, setLoading] = useState<boolean>(true); //loading state
+    const [error, setError] = useState<string>(""); //error message
+    const [feed, setFeed] = useState<any>([]); //feed to display
+    const [rawFeed, setRawFeed] = useState<any>([]); //save raw feed for sorting without re-fetching
+    const [api, setApi] = useState<any>(null); //save api object for later use
+    const [userReblogs, setReblogs] = useState<any>([]); //save user reblogs for later use
+    const [userCoreServers, setCoreServers] = useState<any>([]); //save user core servers for later use
+    const [userReblogWeight, setUserReblogWeight] = useState<number>(2); //weight posts by accounts the user reblogs
+    const [topPostWeight, setTopPostWeight] = useState<number>(5); //weight for top posts 
+    const [frequencyWeight, setFrequencyWeight] = useState<number>(1); //weight for frequency
+    const [timePenalty, setTimePenalty] = useState<number>(1) //penalty for time since post
 
     useEffect(() => {
         const token = props.token;
@@ -32,6 +35,9 @@ export default function Feed(props: { token: string, server: string }) {
         }).then((masto) => {
             setApi(masto)
             constructFeed(masto)
+        }).catch((err) => {
+            setError(err);
+            console.log(err)
         })
     }, []);
 
@@ -84,6 +90,10 @@ export default function Feed(props: { token: string, server: string }) {
                 setFeed(results);
                 setLoading(false);
             })
+            .catch((err) => {
+                setError(err);
+                console.log(err)
+            })
     }
 
     async function getTopPosts(core_servers: any) {
@@ -100,7 +110,6 @@ export default function Feed(props: { token: string, server: string }) {
         console.log(results)
         return results;
     }
-
 
     async function getHomeFeed(masto: any) {
         if (masto === null) masto = api;
@@ -135,7 +144,7 @@ export default function Feed(props: { token: string, server: string }) {
             else if (value.topPost) frequency[value.uri] += topPostWeight;
             else frequency[value.uri] += 1;
         });
-        array = array.filter(item => item != undefined)
+        array = array.filter(item => item != undefined).filter(item => item.inReplyToId === null)
         array = [...new Map(array.map(item => [item["uri"], item])).values()];
 
         return array.map((item) => {
@@ -200,6 +209,11 @@ export default function Feed(props: { token: string, server: string }) {
             </Accordion>
             {isLoading &&
                 <Spinner animation="border" />
+            }
+            {error != "" &&
+                <Alert variant="danger">
+                    {error}
+                </Alert>
             }
             <Stack gap={3} style={{ padding: "10px" }} className="mw-50">
                 {feed.map((status: any) => {
