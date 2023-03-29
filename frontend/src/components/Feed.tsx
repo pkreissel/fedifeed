@@ -9,10 +9,8 @@ import Status from './Status';
 import Accordion from 'react-bootstrap/esm/Accordion';
 import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
-
-
-
-
+import { usePersistentState } from 'react-persistent-state'
+import { Button, Col, Row } from 'react-bootstrap';
 
 export default function Feed(props: { token: string, server: string }) {
     const [isLoading, setLoading] = useState<boolean>(true); //loading state
@@ -21,11 +19,13 @@ export default function Feed(props: { token: string, server: string }) {
     const [rawFeed, setRawFeed] = useState<any>([]); //save raw feed for sorting without re-fetching
     const [api, setApi] = useState<any>(null); //save api object for later use
     const [userReblogs, setReblogs] = useState<any>([]); //save user reblogs for later use
+    const [userFavs, setFavs] = useState<any>([]); //save user favs for later use
     const [userCoreServers, setCoreServers] = useState<any>([]); //save user core servers for later use
-    const [userReblogWeight, setUserReblogWeight] = useState<number>(2); //weight posts by accounts the user reblogs
-    const [topPostWeight, setTopPostWeight] = useState<number>(5); //weight for top posts 
-    const [frequencyWeight, setFrequencyWeight] = useState<number>(1); //weight for frequency
-    const [timePenalty, setTimePenalty] = useState<number>(1) //penalty for time since post
+    const [userReblogWeight, setUserReblogWeight] = usePersistentState<number>(2, "reblogW"); //weight posts by accounts the user reblogs
+    const [userFavWeight, setUserFavWeight] = usePersistentState<number>(1, "favW"); //weight posts by accounts the user favs
+    const [topPostWeight, setTopPostWeight] = usePersistentState<number>(5, "topW"); //weight for top posts 
+    const [frequencyWeight, setFrequencyWeight] = usePersistentState<number>(1, "frequW"); //weight for frequency
+    const [timePenalty, setTimePenalty] = usePersistentState<number>(1, "timeW") //penalty for time since post
 
     useEffect(() => {
         const token = props.token;
@@ -42,7 +42,7 @@ export default function Feed(props: { token: string, server: string }) {
     }, []);
 
     useEffect(() => {
-        let results = sortFeed(rawFeed, userReblogs, userCoreServers);
+        let results = sortFeed(rawFeed, userReblogs, userCoreServers, userFavs);
         results = results.filter((status: any) => {
             return status.content.includes("RT @") === false
         })
@@ -59,22 +59,42 @@ export default function Feed(props: { token: string, server: string }) {
     }, [userReblogWeight, topPostWeight, frequencyWeight, timePenalty])
 
     async function constructFeed(masto: any) {
+
         const res = await fetch("/reblogs")
+        if (!res.ok) {
+            setError("Error fetching reblogs " + res.status);
+            setLoading(false);
+            return;
+        }
         const reblogs = await res.json();
         setReblogs(reblogs);
         const res2 = await fetch("/core_servers")
+        if (!res2.ok) {
+            setError("Error fetching servers " + res2.status);
+            setLoading(false);
+            return;
+        }
         const core_servers = await res2.json();
         setCoreServers(core_servers);
+        const res3 = await fetch("/favorites")
+        if (!res3.ok) {
+            setError("Error fetching favs " + res3.status);
+            setLoading(false);
+            return;
+        }
+        const favs = await res3.json();
+        setFavs(favs);
         Promise.all([
             getHomeFeed(masto),
-            getTopPosts(core_servers)
+            getTopPosts(core_servers),
+
         ])
             .then((data) => {
                 console.log(data)
                 let results = data.flat(1);
                 setRawFeed(results);
                 console.log(results.length)
-                results = sortFeed(results, reblogs, core_servers);
+                results = sortFeed(results, reblogs, core_servers, favs);
                 results = results.filter((status: any) => {
                     return status.content.includes("RT @") === false
                 })
@@ -125,7 +145,7 @@ export default function Feed(props: { token: string, server: string }) {
         return results;
     }
 
-    function sortFeed(array: any[], reblogs: any, core_servers: any) {
+    function sortFeed(array: any[], reblogs: any, core_servers: any, favs: any) {
         //how often a post is in the feed
         var frequency: any = {};
 
@@ -141,8 +161,9 @@ export default function Feed(props: { token: string, server: string }) {
             if (!(value.uri in frequency)) frequency[value.uri] = 0;
 
             if (value.account.acct in reblogs) frequency[value.uri] += reblogs[value.account.acct] * userReblogWeight;
-            else if (value.topPost) frequency[value.uri] += topPostWeight;
-            else frequency[value.uri] += 1;
+            if (value.account.acct in favs) frequency[value.uri] += favs[value.account.acct] * userFavWeight;
+            if (value.topPost) frequency[value.uri] += topPostWeight;
+            frequency[value.uri] += frequencyWeight;
         });
         array = array.filter(item => item != undefined).filter(item => item.inReplyToId === null)
         array = [...new Map(array.map(item => [item["uri"], item])).values()];
@@ -190,14 +211,25 @@ export default function Feed(props: { token: string, server: string }) {
 
 
     return (
-        <Container>
-            <h1 style={{ textAlign: "center" }}>Feed</h1>
+        <Container style={{ alignItems: "center" }} >
+            <Row>
+                <Col >
+                </Col>
+                <Col xs={6}>
+                    <h1 style={{ textAlign: "center" }}>Feed</h1>
+                </Col>
+                <Col>
+                    <Button variant="primary" href='/logout'>Logout</Button>
+                </Col>
+            </Row>
             <Accordion>
                 <Accordion.Item eventKey="0">
                     <Accordion.Header>Feed Algorithmus</Accordion.Header>
                     <Accordion.Body>
                         <Form.Label style={{ textAlign: "center" }}>User Reblog Weight</Form.Label>
                         <Form.Range min="0" max="10" value={userReblogWeight} onChange={(event) => setUserReblogWeight(parseInt(event.target.value))} />
+                        <Form.Label style={{ textAlign: "center" }}>User Fav Weight</Form.Label>
+                        <Form.Range min="0" max="10" value={userFavWeight} onChange={(event) => setUserFavWeight(parseInt(event.target.value))} />
                         <Form.Label style={{ textAlign: "center" }}>Top Post Weight</Form.Label>
                         <Form.Range min="0" max="10" value={topPostWeight} onChange={(event) => setTopPostWeight(parseInt(event.target.value))} />
                         <Form.Label style={{ textAlign: "center" }}>Frequency Weight</Form.Label>
@@ -208,10 +240,10 @@ export default function Feed(props: { token: string, server: string }) {
                 </Accordion.Item>
             </Accordion>
             {isLoading &&
-                <Spinner animation="border" />
+                <Spinner animation="border" style={{ justifySelf: "center" }} />
             }
             {error != "" &&
-                <Alert variant="danger">
+                <Alert variant="danger" style={{ justifySelf: "center" }}>
                     {error}
                 </Alert>
             }

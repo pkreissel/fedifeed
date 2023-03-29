@@ -16,7 +16,8 @@
     "masto": "^5.10.0",
     "react": "^18.2.0",
     "react-bootstrap": "^2.7.2",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-persistent-state": "^1.1.8"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

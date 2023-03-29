@@ -27,7 +27,13 @@ def index(request):
     })
 
 
+@login_required
 def logout(request):
+    api = Mastodon(
+        access_token=request.user.mastodon.token,
+        api_base_url=request.user.mastodon.server.api_base_url,
+    )
+    api.revoke_access_token()
     auth_logout(request)
     return redirect('/')
 
@@ -107,9 +113,17 @@ def register(request):
 
 @login_required
 def reblogs(request):
+    """Fetch Users that are reblogged the most
+
+    Args:
+        request (request): request
+
+    Returns:
+        JSONResponse: Most reblogged users as a json-dict
+    """
     import pandas as pd
     from django.core.cache import cache
-    if cache.get(f'reblogs{request.user.id}', "expired") is not "expired":
+    if len(cache.get(f'reblogs{request.user.id}', [])) > 0:
         frequent = cache.get(f'reblogs{request.user.id}')
     else:
         api = Mastodon(
@@ -130,6 +144,36 @@ def reblogs(request):
 
 
 @login_required
+def favorites(request):
+    """Fetch Users that are favorited the most
+
+    Args:
+        request (request): The request
+
+    Returns:
+        JSONResponse: Most favorited users as a json-dict
+    """
+    import pandas as pd
+    from django.core.cache import cache
+    if len(cache.get(f'favs{request.user.id}', [])) > 0:
+        frequent = cache.get(f'favs{request.user.id}')
+    else:
+        api = Mastodon(
+            access_token=request.user.mastodon.token,
+            api_base_url=request.user.mastodon.server.api_base_url,
+        )
+        id = api.me().id
+        page = api.favourites()
+        results = page
+        for _ in range(3):
+            page = api.fetch_next(page)
+            results.extend(page)
+        frequent = pd.json_normalize(results).value_counts('account.acct')
+        cache.set(f'favs{request.user.id}', frequent, 60*60*24)
+    return JsonResponse(frequent.to_dict())
+
+
+@login_required
 def core_accounts(request):
     api = Mastodon(
         access_token=request.user.mastodon.token,
@@ -141,7 +185,7 @@ def core_accounts(request):
 def core_servers(request):
     import pandas as pd
     from django.core.cache import cache
-    if cache.get(f'core_servers{request.user.id}', "expired") is not "expired":
+    if len(cache.get(f'core_servers{request.user.id}', [])) > 0:
         frequent_server = cache.get(f'core_servers{request.user.id}')
     else:
         api = Mastodon(
@@ -157,7 +201,7 @@ def core_servers(request):
         followers = api.fetch_remaining(api.account_following(
             request.user.mastodon.userId, limit=500))
         frequent = pd.json_normalize(followers)
-        frequent.server = frequent['url'].str.split('@').str[0]
-        frequent_server = frequent.server.value_counts()[:5].to_dict()
+        server = frequent['url'].str.split('@').str[0]
+        frequent_server = server.value_counts()[:5].to_dict()
         cache.set(f'core_servers{request.user.id}', frequent_server, 60*60*24)
     return JsonResponse(frequent_server)
