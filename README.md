@@ -47,11 +47,11 @@ npx webpack --config webpack.config.js --watch
 - [ ] Improve CI/CD
 - [ ] Add Tests
 - [ ] Add more Documentation
-- [ ] Add storage for feed Settings
-- [ ] Add most liked users to weights
+- [x] Add storage for feed Settings
+- [x] Add most liked users to weights
 - [ ] Add option to choose which Instances to pull the top posts from
 - [ ] More description for weights
-- [ ] Add Logout Button and invalidate token 
+- [x] Add Logout Button and invalidate token 
 - [ ] Better UI, Support for Polls, Videos, Images, etc.
 - [ ] Working Links back into the traditional Mastodon Interface
 - [x] Retweet, Like etc. Buttons
