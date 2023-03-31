@@ -5,20 +5,28 @@ import Carousel from 'react-bootstrap/esm/Carousel';
 import Nav from 'react-bootstrap/Nav';
 import NavDropdown from 'react-bootstrap/NavDropdown';
 
-export default function Status(props: { status: any, fav: (status: any) => void, reblog: (status: any) => void }): ReactElement {
-    const status = props.status;
+export default function Status(props: {
+    status: any,
+    fav: (status: any) => void,
+    reblog: (status: any) => void,
+    followUri: (status: any) => void
+}): ReactElement {
+    const [status, setStatus] = React.useState<any>(props.status);
     const handleSelect = (eventKey: any) => {
         console.log("eventKey")
         console.log(eventKey)
         switch (eventKey) {
             case "reblog":
+                props.status.reblogged = true;
+                props.status.reblogsCount += 1;
                 props.reblog(status);
+                setStatus(props.status);
                 break;
             case "fav":
                 props.fav(status);
                 break;
             case "status":
-                window.open(status.uri, "_blank");
+                props.followUri(status);
                 break;
             default:
                 break;
@@ -53,10 +61,10 @@ export default function Status(props: { status: any, fav: (status: any) => void,
                 {
                     status.card &&
                     <a href={status.card.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
-                        <Card style={{ width: "533px" }}>
+                        <Card>
                             {
                                 status.card.image !== null &&
-                                <Card.Img style={{ width: "533px", height: "300px", justifySelf: "center" }} variant="top" src={status.card.image} alt="card" />
+                                <Card.Img variant="top" src={status.card.image} alt="card" />
                             }
                             <Card.Body>
                                 <Card.Title>{status.card.title}</Card.Title>
@@ -67,20 +75,22 @@ export default function Status(props: { status: any, fav: (status: any) => void,
                     </a>
 
                 }
-                <Nav variant="pills" onSelect={handleSelect}>
+                <Nav variant="pills" onSelect={handleSelect} >
                     <Nav.Item>
-                        <Nav.Link eventKey="reblog">
+                        <Nav.Link eventKey="reblog" active={status.reblogged}>
                             {status.reblogsCount} Reblog
                         </Nav.Link>
                     </Nav.Item>
                     <Nav.Item>
-                        <Nav.Link eventKey="fav">
+                        <Nav.Link eventKey="fav" active={status.favorited}>
                             {status.favouritesCount} Fav
                         </Nav.Link>
                     </Nav.Item>
                     <NavDropdown title="More" id="nav-dropdown">
                         <NavDropdown.Item>
-                            <Nav.Link eventKey="status" href={status.uri}>Status Link</Nav.Link>
+                            <Nav.Link eventKey="status">
+                                Status Link
+                            </Nav.Link>
                         </NavDropdown.Item>
                     </NavDropdown>
                 </Nav>

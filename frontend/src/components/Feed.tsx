@@ -96,7 +96,7 @@ export default function Feed(props: { token: string, server: string }) {
                 console.log(results.length)
                 results = sortFeed(results, reblogs, core_servers, favs);
                 results = results.filter((status: any) => {
-                    return status.content.includes("RT @") === false
+                    return (status.content.includes("RT @") === false && !status.reblogged)
                 })
                 results = results.map((status: any) => {
                     if (status.reblog) {
@@ -147,7 +147,10 @@ export default function Feed(props: { token: string, server: string }) {
 
     function sortFeed(array: any[], reblogs: any, core_servers: any, favs: any) {
         //how often a post is in the feed
-        var frequency: any = {};
+        interface weightsType {
+            [key: string]: number; // Replace 'any' with the desired value type (e.g., string, number, etc.)
+        }
+        var weights: { [key: string]: weightsType } = {};
 
         array.forEach(function (value: { id: string, uri: string, account: any, reblog: any, topPost: any }) {
             if (!value?.account) {
@@ -158,28 +161,42 @@ export default function Feed(props: { token: string, server: string }) {
             }
             if (value.reblog) value.uri = value.reblog.uri;
 
-            if (!(value.uri in frequency)) frequency[value.uri] = 0;
+            if (!(value.uri in weights)) weights[value.uri] = {
+                "userReblogWeight": 0,
+                "userFavWeight": 0,
+                "topPostWeight": 0,
+                "frequencyWeight": 0
+            }
 
-            if (value.account.acct in reblogs) frequency[value.uri] += reblogs[value.account.acct] * userReblogWeight;
-            if (value.account.acct in favs) frequency[value.uri] += favs[value.account.acct] * userFavWeight;
-            if (value.topPost) frequency[value.uri] += topPostWeight;
-            frequency[value.uri] += frequencyWeight;
+            const weight: weightsType = {
+                "userReblogWeight": (value.account.acct in reblogs) ? reblogs[value.account.acct] * userReblogWeight : 0,
+                "userFavWeight": (value.account.acct in favs) ? favs[value.account.acct] * userFavWeight : 0,
+                "topPostWeight": value.topPost ? topPostWeight : 0,
+                "frequencyWeight": frequencyWeight
+            }
+            for (let key in weight) {
+                if (weights[value.uri].hasOwnProperty(key)) {
+                    weights[value.uri][key] += weight[key]
+                }
+            }
         });
         array = array.filter(item => item != undefined).filter(item => item.inReplyToId === null)
         array = [...new Map(array.map(item => [item["uri"], item])).values()];
 
         return array.map((item) => {
             const seconds = Math.floor((new Date().getTime() - new Date(item.createdAt).getTime()) / 1000);
-            item.value = frequency[item.uri];
-            item.value = item.value * (1 - (seconds * timePenalty / 86400));
-            console.log(item)
+            item.weights = weights[item.uri]
+            item.value = Object.values(weights[item.uri]).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+            const timediscount = Math.pow((1 + timePenalty * 0.2), -Math.pow((seconds / 3600), 2));
+            console.log(timediscount)
+            item.value = item.value * timediscount
             return item;
         }).sort(function (a, b) {
             return b.value - a.value
         })
     }
 
-    const resolve = async (status: any): Promise<{ id: string }> => {
+    const resolve = async (status: any): Promise<{ id: string, uri: string, account: { acct: string } }> => {
         const masto = api;
         if (status.uri.includes(props.server)) {
             return status;
@@ -209,6 +226,12 @@ export default function Feed(props: { token: string, server: string }) {
         })();
     }
 
+    const followUri = async (status: any) => {
+        const status_ = await resolve(status);
+        console.log(status_)
+        window.open(props.server + "/@" + status_.account.acct + "/" + status_.id, "_blank");
+    }
+
 
     return (
         <Container style={{ alignItems: "center" }} >
@@ -226,15 +249,15 @@ export default function Feed(props: { token: string, server: string }) {
                 <Accordion.Item eventKey="0">
                     <Accordion.Header>Feed Algorithmus</Accordion.Header>
                     <Accordion.Body>
-                        <Form.Label style={{ textAlign: "center" }}>User Reblog Weight</Form.Label>
-                        <Form.Range min="0" max="10" value={userReblogWeight} onChange={(event) => setUserReblogWeight(parseInt(event.target.value))} />
-                        <Form.Label style={{ textAlign: "center" }}>User Fav Weight</Form.Label>
-                        <Form.Range min="0" max="10" value={userFavWeight} onChange={(event) => setUserFavWeight(parseInt(event.target.value))} />
-                        <Form.Label style={{ textAlign: "center" }}>Top Post Weight</Form.Label>
-                        <Form.Range min="0" max="10" value={topPostWeight} onChange={(event) => setTopPostWeight(parseInt(event.target.value))} />
-                        <Form.Label style={{ textAlign: "center" }}>Frequency Weight</Form.Label>
-                        <Form.Range min="0" max="10" value={frequencyWeight} onChange={(event) => setFrequencyWeight(parseInt(event.target.value))} />
-                        <Form.Label style={{ textAlign: "center" }}>Time Penalty</Form.Label>
+                        <Form.Label style={{ textAlign: "center" }}>Show more Posts of Users you reblogged in the past. {userReblogWeight}</Form.Label>
+                        <Form.Range min="0" max="10" step={0.1} value={userReblogWeight} onChange={(event) => setUserReblogWeight(parseInt(event.target.value))} />
+                        <Form.Label style={{ textAlign: "center" }}>Show more Posts of Users you faved in the past. {userFavWeight}</Form.Label>
+                        <Form.Range min="0" max="10" step={0.1} value={userFavWeight} onChange={(event) => setUserFavWeight(parseInt(event.target.value))} />
+                        <Form.Label style={{ textAlign: "center" }}>Show more Trending Posts from your favorite Servers {topPostWeight}</Form.Label>
+                        <Form.Range min="0" max="10" step={0.1} value={topPostWeight} onChange={(event) => setTopPostWeight(parseInt(event.target.value))} />
+                        <Form.Label style={{ textAlign: "center" }}>Show more Posts that were repeatedly reposted in your feed {frequencyWeight}</Form.Label>
+                        <Form.Range min="0" max="10" step={0.1} value={frequencyWeight} onChange={(event) => setFrequencyWeight(parseInt(event.target.value))} />
+                        <Form.Label style={{ textAlign: "center" }}>Time Penalty {timePenalty}</Form.Label>
                         <Form.Range min="0" max="1" step={0.1} value={timePenalty} onChange={(event) => setTimePenalty(parseFloat(event.target.value))} />
                     </Accordion.Body>
                 </Accordion.Item>
@@ -247,10 +270,10 @@ export default function Feed(props: { token: string, server: string }) {
                     {error}
                 </Alert>
             }
-            <Stack gap={3} style={{ padding: "10px" }} className="mw-50">
+            <Stack gap={3} style={{ padding: "10px", maxWidth: "800px", justifyContent: "center", justifySelf: "center" }} className="mw-40">
                 {feed.map((status: any) => {
                     return (
-                        <Status status={status} reblog={reblog} fav={fav} key={status.id} />
+                        <Status status={status} reblog={reblog} fav={fav} followUri={followUri} key={status.id} />
                     )
                 })}
             </Stack >
