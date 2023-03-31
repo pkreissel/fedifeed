@@ -10,6 +10,11 @@ from django.contrib.auth.decorators import login_required
 from django.conf import settings
 # Create your views here.
 
+DEFAULT_SCOPES = ["read:favourites", "read:follows", "read:search", "read:blocks",
+                  "read:accounts", "read:statuses", "write:favourites", "write:statuses", "write:follows",
+                  "read:lists", "write:lists", "read:filters", "read:blocks"
+                  ]
+
 
 def index(request):
     auth_url = None
@@ -54,7 +59,7 @@ def login(request):
     token = api.log_in(
         code=code,
         redirect_uri=settings.HOSTED_URL + "/login",
-        scopes=["write", "read"]
+        scopes=DEFAULT_SCOPES
     )
     print(token)
     me = api.me()
@@ -86,7 +91,7 @@ def register(request):
         client_id, client_secret = Mastodon.create_app(
             api_base_url=server,
             redirect_uris=settings.HOSTED_URL + "/login",
-            scopes=["write", "read"],
+            scopes=DEFAULT_SCOPES,
             client_name="SmartFeed",
         )
         mastoServer.client_id = client_id
@@ -105,7 +110,7 @@ def register(request):
     auth_url = api.auth_request_url(
         client_id=mastoServer.client_id,
         redirect_uris=settings.HOSTED_URL + "/login",
-        scopes=["write", "read"]
+        scopes=DEFAULT_SCOPES
     )
     print(auth_url)
     return redirect(auth_url)
@@ -136,7 +141,11 @@ def reblogs(request):
         results = page
         for _ in range(3):
             page = api.fetch_next(page)
+            if page is None:
+                break
             results.extend(page)
+        if len(results) == 0:
+            return JsonResponse({})
         reblogs = [results.reblog for results in results if results.reblog]
         frequent = pd.json_normalize(reblogs).value_counts('account.acct')
         cache.set(f'reblogs{request.user.id}', frequent, 60*60*24)
@@ -167,7 +176,11 @@ def favorites(request):
         results = page
         for _ in range(3):
             page = api.fetch_next(page)
+            if page is None:
+                break
             results.extend(page)
+        if len(results) == 0:
+            return JsonResponse({})
         frequent = pd.json_normalize(results).value_counts('account.acct')
         cache.set(f'favs{request.user.id}', frequent, 60*60*24)
     return JsonResponse(frequent.to_dict())
