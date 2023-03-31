@@ -1,4 +1,5 @@
 from http import client
+from unittest.mock import DEFAULT
 from django.shortcuts import render, redirect
 import requests
 from django.http import JsonResponse, HttpResponse
@@ -10,10 +11,13 @@ from django.contrib.auth.decorators import login_required
 from django.conf import settings
 # Create your views here.
 
-DEFAULT_SCOPES = ["read:favourites", "read:follows", "read:search", "read:blocks",
-                  "read:accounts", "read:statuses", "write:favourites", "write:statuses", "write:follows",
-                  "read:lists", "write:lists", "read:filters", "read:blocks"
-                  ]
+
+DEFAULT_SCOPES = ["read", "write"]
+
+FINE_SCOPES = ["read:favourites", "read:follows", "read:search", "read:blocks",
+               "read:accounts", "read:statuses", "write:favourites", "write:statuses", "write:follows",
+               "read:lists", "write:lists", "read:filters", "read:blocks"
+               ]
 
 
 def index(request):
