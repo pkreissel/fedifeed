@@ -1,18 +1,34 @@
-import React, { ReactElement } from 'react';
+import React, { ReactElement, RefObject, useEffect, useLayoutEffect, useRef } from 'react';
 import parse from 'html-react-parser'
 import Card from 'react-bootstrap/Card';
 import Carousel from 'react-bootstrap/esm/Carousel';
 import Nav from 'react-bootstrap/Nav';
 import NavDropdown from 'react-bootstrap/NavDropdown';
+import useOnScreen from '../utils/useOnScreen';
 
 export default function Status(props: {
     status: any,
+    onView: (status: any) => void,
     fav: (status: any) => void,
     reblog: (status: any) => void,
-    followUri: (status: any) => void
+    followUri: (status: any) => void,
+    followLink: (status: any) => void,
+    key: string,
+    isTop: boolean,
 }): ReactElement {
+    const ref = useRef<HTMLDivElement>(null);
     const [status, setStatus] = React.useState<any>(props.status);
-    const handleSelect = (eventKey: any) => {
+    const isVisible = useOnScreen(ref)
+
+    useLayoutEffect(() => {
+        if (props.isTop) ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, []);
+
+    useEffect(() => {
+        if (isVisible) props.onView(props.status)
+    }, [isVisible])
+
+    const handleSelect = (eventKey: keyof { "reblog": string, "link": string, "fav": string, "status": string }) => {
         console.log("eventKey")
         console.log(eventKey)
         switch (eventKey) {
@@ -28,12 +44,14 @@ export default function Status(props: {
             case "status":
                 props.followUri(status);
                 break;
+            case "link":
+                props.followLink(status);
             default:
                 break;
         }
     }
     return (
-        <Card bg={""} border={"secondary"}>
+        <Card bg={""} border={"secondary"} id={props.key} ref={ref}>
             <Card.Header style={{ background: "white" }}>
                 {status.reblog_by &&
                     <p>Reblog by {status.reblog_by}</p>
@@ -60,19 +78,17 @@ export default function Status(props: {
                 }
                 {
                     status.card &&
-                    <a href={status.card.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
-                        <Card>
-                            {
-                                status.card.image !== null &&
-                                <Card.Img variant="top" src={status.card.image} alt="card" />
-                            }
-                            <Card.Body>
-                                <Card.Title>{status.card.title}</Card.Title>
-                                <Card.Subtitle>{status.card.description}</Card.Subtitle>
-                            </Card.Body>
-                            <Card.Footer className="text-muted">{status.card.url}</Card.Footer>
-                        </Card>
-                    </a>
+                    <Card onClick={() => handleSelect("link")}>
+                        {
+                            status.card.image !== null &&
+                            <Card.Img variant="top" src={status.card.image} alt="card" />
+                        }
+                        <Card.Body>
+                            <Card.Title>{status.card.title}</Card.Title>
+                            <Card.Subtitle>{status.card.description}</Card.Subtitle>
+                        </Card.Body>
+                        <Card.Footer className="text-muted">{status.card.url}</Card.Footer>
+                    </Card>
 
                 }
                 <Nav variant="pills" onSelect={handleSelect} >

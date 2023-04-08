@@ -141,7 +141,7 @@ def reblogs(request):
         )
         id = api.me().id
         page = api.account_statuses(
-            id, exclude_replies=True, exclude_reblogs=False)
+            id, exclude_replies=False, exclude_reblogs=False)
         results = page
         for _ in range(3):
             page = api.fetch_next(page)
@@ -151,6 +151,8 @@ def reblogs(request):
         if len(results) == 0:
             return JsonResponse({})
         reblogs = [results.reblog for results in results if results.reblog]
+        mentions = [results.mentions for results in results if results.mentions]
+        print(mentions)
         frequent = pd.json_normalize(reblogs).value_counts('account.acct')
         cache.set(f'reblogs{request.user.id}', frequent, 60*60*24)
     return JsonResponse(frequent.to_dict())
