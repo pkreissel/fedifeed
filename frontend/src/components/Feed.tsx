@@ -78,6 +78,7 @@ export default function Feed(props: { token: string, server: string }) {
         if (isBottom) {
             console.log("bottom")
             if (records < feed.length) {
+                console.log("load more")
                 setRecords(records + 20)
             } else {
                 setRecords(feed.length)
@@ -241,7 +242,7 @@ export default function Feed(props: { token: string, server: string }) {
                 </Alert>
             }
             <Stack gap={3} style={{ padding: "10px", paddingTop: "120px", maxWidth: "800px", justifyContent: "center", justifySelf: "center" }} className="mw-40">
-                {feed.map((status: any, index) => {
+                {feed.slice(0, Math.max(20, records)).map((status: any, index) => {
                     return (
                         <Status
                             onView={onView}
