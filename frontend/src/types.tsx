@@ -53,7 +53,6 @@ type StatusType = {
     value?: number;
     content: string;
     reblogged?: Boolean
-
 }
 
 export { weightsType, scopeType, StatusType }

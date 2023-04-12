@@ -133,7 +133,7 @@ def reblogs(request):
     import pandas as pd
     from django.core.cache import cache
     if len(cache.get(f'reblogs{request.user.id}', [])) > 0:
-        frequent = cache.get(f'reblogs{request.user.id}')
+        frequ = cache.get(f'reblogs{request.user.id}')
     else:
         api = Mastodon(
             access_token=request.user.mastodon.token,
@@ -150,12 +150,18 @@ def reblogs(request):
             results.extend(page)
         if len(results) == 0:
             return JsonResponse({})
-        reblogs = [results.reblog for results in results if results.reblog]
-        mentions = [results.mentions for results in results if results.mentions]
-        print(mentions)
-        frequent = pd.json_normalize(reblogs).value_counts('account.acct')
-        cache.set(f'reblogs{request.user.id}', frequent, 60*60*24)
-    return JsonResponse(frequent.to_dict())
+        reblogs = [
+            result.reblog for result in results if result.reblog]
+        mentions = [result.mentions for result in results if result.mentions]
+        mentions = [acc for mention in mentions for acc in mention]
+        mentions_frequ = pd.json_normalize(mentions).value_counts('acct')
+        reblogs_frequ = pd.json_normalize(reblogs).value_counts('account.acct')
+        frequ = {
+            "reblogs": reblogs_frequ.to_dict(),
+            "mentions": mentions_frequ.to_dict(),
+        }
+        cache.set(f'reblogs{request.user.id}', frequ, 60*60*24)
+    return JsonResponse(frequ)
 
 
 @login_required

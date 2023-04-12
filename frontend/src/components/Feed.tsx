@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useEffect, useState } from 'react';
 import { login, SerializerNativeImpl } from 'masto';
 
@@ -12,29 +12,46 @@ import Alert from 'react-bootstrap/Alert';
 import { usePersistentState } from 'react-persistent-state'
 import { Button, Col, Navbar, Row } from 'react-bootstrap';
 import { weightsType, StatusType } from '../types';
+import sortFeed from '../utils/theAlgorithm';
+import useOnScreen from '../utils/useOnScreen';
+import reblogsFeature from '../features/reblogsFeature';
+import favsFeature from '../features/favsFeature';
+import coreServersFeature from '../features/coreServerFeature';
+import topPostsFeed from '../feeds/topPostsFeed';
+import homeFeed from '../feeds/homeFeed';
 
 export default function Feed(props: { token: string, server: string }) {
     const [isLoading, setLoading] = useState<boolean>(true); //loading state
     const [error, setError] = useState<string>(""); //error message
     const [feed, setFeed] = useState<StatusType[]>([]); //feed to display
+    const [records, setRecords] = useState<number>(20); //how many records to show
     const [rawFeed, setRawFeed] = useState<StatusType[]>([]); //save raw feed for sorting without re-fetching
     const [seenFeed, setSeenFeed] = usePersistentState<StatusType[]>(new Array(), "seen");
     const [api, setApi] = useState<any>(null); //save api object for later use
+    //Features:
     const [userReblogs, setReblogs] = useState<any>([]); //save user reblogs for later use
     const [userFavs, setFavs] = useState<any>([]); //save user favs for later use
     const [userCoreServers, setCoreServers] = useState<any>([]); //save user core servers for later use
+    //Weights
     const [userReblogWeight, setUserReblogWeight] = usePersistentState<number>(2, "reblogW"); //weight posts by accounts the user reblogs
     const [userFavWeight, setUserFavWeight] = usePersistentState<number>(1, "favW"); //weight posts by accounts the user favs
     const [topPostWeight, setTopPostWeight] = usePersistentState<number>(2, "topW"); //weight for top posts 
     const [frequencyWeight, setFrequencyWeight] = usePersistentState<number>(3, "frequW"); //weight for frequency
+    //Penalty
     const [activePenalty, setActivePenalty] = usePersistentState<number>(0.8, "activeW") //penalty for active accounts
     const [timePenalty, setTimePenalty] = usePersistentState<number>(1, "timeW") //penalty for time since post
+    //User Setting
     const [autoAdjust, setAutoAdjust] = usePersistentState<boolean>(true, "autoAdjust") //auto adjust weights
+
+    const bottomRef = useRef<HTMLDivElement>(null);
+    const isBottom = useOnScreen(bottomRef)
     const topRef = React.useRef<HTMLDivElement>(null);
     const seenFeedLength = useMemo(() => {
         console.log("seen feed length: " + seenFeed.length)
         return seenFeed.length
     }, [])
+
+    //Contruct Feed on Page Load
     useEffect(() => {
         const token = props.token;
         login({
@@ -49,168 +66,49 @@ export default function Feed(props: { token: string, server: string }) {
         })
     }, []);
 
+    //Sort Feed on Manual Weight Change
     useEffect(() => {
-        console.log("resorting feed")
         if (autoAdjust) return
-        let results = sortFeed(rawFeed, userReblogs, userCoreServers, userFavs);
+        const results = sortFeed(rawFeed, userReblogs, userCoreServers, userFavs, seenFeed, userReblogWeight, userFavWeight, topPostWeight, frequencyWeight, activePenalty, timePenalty)
         setFeed(results);
     }, [userReblogWeight, topPostWeight, frequencyWeight, userFavWeight, timePenalty, activePenalty])
 
-    async function constructFeed(masto: any) {
-        const res = await fetch("/reblogs")
-        if (!res.ok) {
-            setError("Error fetching reblogs " + res.status);
-            setLoading(false);
-            return;
-        }
-        const reblogs = await res.json();
-        setReblogs(reblogs);
-        const res2 = await fetch("/core_servers")
-        if (!res2.ok) {
-            setError("Error fetching servers " + res2.status);
-            setLoading(false);
-            return;
-        }
-        const core_servers = await res2.json();
-        setCoreServers(core_servers);
-        const res3 = await fetch("/favorites")
-        if (!res3.ok) {
-            setError("Error fetching favs " + res3.status);
-            setLoading(false);
-            return;
-        }
-        const favs = await res3.json();
-        setFavs(favs);
-        Promise.all([
-            getHomeFeed(masto),
-            getTopPosts(core_servers),
-
-        ])
-            .then((data) => {
-                console.log(data)
-                let results = data.flat(1);
-                setRawFeed(results);
-                console.log(results.length)
-                results = sortFeed(results, reblogs, core_servers, favs);
-                console.log(results.slice(0, 50).map((status: any) => status.content).join(""))
-                setFeed(results);
-                setLoading(false);
-                console.log(topRef)
-            })
-            .catch((err) => {
-                setError(err);
-                console.log(err)
-            })
-    }
-
-    async function getTopPosts(core_servers: any) {
-        let results: any[] = [];
-        const serializer = new SerializerNativeImpl();
-        for (const server of Object.keys(core_servers)) {
-            const res = await fetch(server + "/api/v1/trends/statuses")
-            const data: any[] = serializer.deserialize('application/json', await res.text());
-            results = results.concat(data.map((status: any) => {
-                status.topPost = true;
-                return status;
-            }).slice(0, 5))
-        }
-        console.log(results)
-        return results;
-    }
-
-    async function getHomeFeed(masto: any) {
-        if (masto === null) masto = api;
-        let results: any[] = [];
-        let pages = 10;
-        for await (const page of masto.v1.timelines.listHome()) {
-            results = results.concat(page)
-            pages--;
-            if (pages === 0) {
-                break;
-            }
-        }
-        return results;
-    }
-
-    function sortFeed(array: StatusType[], reblogs: any, core_servers: any, favs: any): StatusType[] {
-        //how often a post is in the feed
-        var weights: { [key: string]: weightsType } = {};
-        var accounts: { [key: string]: number } = {};
-
-        array.forEach(function (item: StatusType) {
-            if (!item?.account) {
-                console.log("Error")
-                console.log(typeof (item))
-                console.log(item)
-                return;
-            }
-            if (item.reblog) item.uri = item.reblog.uri;
-
-            if (!(item.uri in weights)) weights[item.uri] = {
-                "userReblogWeight": 0,
-                "userFavWeight": 0,
-                "topPostWeight": 0,
-                "frequencyWeight": 0
-            }
-
-            const weight: weightsType = {
-                "userReblogWeight": (item.account.acct in reblogs) ? reblogs[item.account.acct] * userReblogWeight : 0,
-                "userFavWeight": (item.account.acct in favs) ? favs[item.account.acct] * userFavWeight : 0,
-                "topPostWeight": item.topPost ? topPostWeight : 0,
-                "frequencyWeight": frequencyWeight
-            }
-            for (let key in weight) {
-                if (weights[item.uri].hasOwnProperty(key)) {
-                    weights[item.uri][key] += weight[key]
-                }
-            }
-        });
-        const seenUris = [...seenFeed].map((item) => item.uri);
-        array = array
-            .filter(item => item != undefined)
-            .filter(item => item.inReplyToId === null)
-            .filter((item: StatusType) => item.content.includes("RT @") === false)
-            .filter((item: StatusType) => !item.reblogged)
-
-
-        array = [...new Map(array.map(item => [item["uri"], item])).values()];
-
-        const sortedArray = array.map((item) => {
-            item.weights = weights[item.uri]
-            item.value = Object.values(weights[item.uri]).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-            return item;
-        }).sort(function (a, b) {
-            return b.value - a.value
-        })
-        const mixedArray = sortedArray.map((item) => {
-            if (item.account.acct in accounts) {
-                accounts[item.account.acct] += 1;
+    //Load More Posts on Scroll
+    useEffect(() => {
+        if (isBottom) {
+            console.log("bottom")
+            if (records < feed.length) {
+                setRecords(records + 20)
             } else {
-                accounts[item.account.acct] = 1;
+                setRecords(feed.length)
             }
-            const seconds = Math.floor((new Date().getTime() - new Date(item.createdAt).getTime()) / 1000);
-            const timediscount = Math.pow((1 + timePenalty * 0.2), -Math.pow((seconds / 3600), 2));
-            item.value = item.value * timediscount
-            item.value = item.value * Math.pow(activePenalty, accounts[item.account.acct])
-            return item;
-        }).sort(function (a, b) {
-            return b.value - a.value
-        })
+        }
+    }, [isBottom])
 
-        const finalArray = mixedArray.map((status: any) => {
-            if (status.reblog) {
-                status.reblog.value = status.value;
-                status.reblog.weights = status.weights
-                status.reblog.reblog_by = status.account.acct;
-                return status.reblog;
-            }
-            status.reblog_by = null;
-            return status;
-        })
-        return finalArray
+    async function constructFeed(masto: any) {
+        //Fetche Features and Feeds, pass to Algorithm
+        const featureFuncs = [reblogsFeature, coreServersFeature, favsFeature]
+        const features = Promise.all(featureFuncs.map((func) => func()))
+        const [reblogs, core_servers, favs] = await features
+        setReblogs(reblogs);
+        setCoreServers(core_servers);
+        setFavs(favs);
+        const feeds = Promise.all([
+            homeFeed(masto),
+            topPostsFeed(core_servers),
+        ])
+        let results = (await feeds).flat(1);
+        setRawFeed(results);
+        results = sortFeed(results, reblogs, core_servers, favs, seenFeed, userReblogWeight, userFavWeight, topPostWeight, frequencyWeight, activePenalty, timePenalty);
+        console.log(results)
+        setFeed(results);
+        setLoading(false);
     }
+
+
 
     const resolve = async (status: StatusType): Promise<StatusType> => {
+        //Resolve Links to other instances on homeserver
         const masto = api;
         if (status.uri.includes(props.server)) {
             return status;
@@ -221,6 +119,7 @@ export default function Feed(props: { token: string, server: string }) {
     }
 
     const reblog = async (status: StatusType) => {
+        //Reblog a post
         const masto = api;
         const status_ = await resolve(status);
         weightAdjust(status.weights)
@@ -232,6 +131,7 @@ export default function Feed(props: { token: string, server: string }) {
     }
 
     const fav = async (status: StatusType) => {
+        //Favourite a post
         console.log(status.weights)
         const masto = api;
         const status_ = await resolve(status);
@@ -244,6 +144,7 @@ export default function Feed(props: { token: string, server: string }) {
     }
 
     const followUri = async (status: StatusType) => {
+        //Follow a link to another instance on the homeserver
         const status_ = await resolve(status);
         weightAdjust(status.weights)
         console.log(status_)
@@ -251,11 +152,13 @@ export default function Feed(props: { token: string, server: string }) {
     }
 
     const followLink = async (status: StatusType) => {
+        //Follow an article link
         weightAdjust(status.weights)
         window.open(status.card.url, "_blank");
     }
 
     const onView = async (status: StatusType) => {
+        //Mark a post as seen
         console.log(status.account.acct)
         const status_ = { ...status };
         status_.value = -1
@@ -269,6 +172,7 @@ export default function Feed(props: { token: string, server: string }) {
     }
 
     const weightAdjust = (weight: weightsType) => {
+        //Adjust Weights based on user interaction
         if (autoAdjust === false) return;
         console.log(weight)
         if (weight == undefined) return;
@@ -338,7 +242,6 @@ export default function Feed(props: { token: string, server: string }) {
             }
             <Stack gap={3} style={{ padding: "10px", paddingTop: "120px", maxWidth: "800px", justifyContent: "center", justifySelf: "center" }} className="mw-40">
                 {feed.map((status: any, index) => {
-                    console.log(index === seenFeedLength)
                     return (
                         <Status
                             onView={onView}
@@ -348,11 +251,12 @@ export default function Feed(props: { token: string, server: string }) {
                             followUri={followUri}
                             followLink={followLink}
                             key={status.id}
-                            isTop={index === seenFeedLength}
+                            isTop={false}
                         />
                     )
                 })}
             </Stack >
+            <div ref={bottomRef}></div>
         </Container >
     )
 }
