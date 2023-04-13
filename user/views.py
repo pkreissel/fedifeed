@@ -38,9 +38,12 @@ def index(request):
 
 @login_required
 def logout(request):
+    mastoServer = request.user.mastodon.server
     api = Mastodon(
         access_token=request.user.mastodon.token,
         api_base_url=request.user.mastodon.server.api_base_url,
+        client_id=mastoServer.client_id,
+        client_secret=mastoServer.client_secret,
     )
     api.revoke_access_token()
     auth_logout(request)
