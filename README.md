@@ -1,3 +1,8 @@
+# Update:
+As of May 16th I will archive this Repo to continue development here: https://github.com/pkreissel/foryoufeed
+The new project enables me to do everything in react without a backend server. It is hosted here: https://vercel.com/pkreissel/foryoufeed
+If you only need the algorithm without all the fuss for your own project you can use this package: https://github.com/pkreissel/fedialgo 
+
 # fedifeed
 Display Mastodon Posts in a curated feed with an user-customisable algorithm
 
